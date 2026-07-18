@@ -1,0 +1,5 @@
+{
+  "extends": "@codemri/config/typescript/base",
+  "compilerOptions": { "types": ["node"], "noEmit": true },
+  "include": ["src/**/*.ts"]
+}

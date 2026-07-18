@@ -1,0 +1,31 @@
+{
+  "name": "@codemri/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@codemri/analyzer": "workspace:*",
+    "@codemri/config": "workspace:*",
+    "@codemri/db": "workspace:*",
+    "@codemri/metrics": "workspace:*",
+    "@codemri/queue": "workspace:*",
+    "@codemri/repository": "workspace:*",
+    "@codemri/types": "workspace:*",
+    "bullmq": "^5.50.0",
+    "dotenv": "^16.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "eslint": "^9.25.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}

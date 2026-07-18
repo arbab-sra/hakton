@@ -1,0 +1,19 @@
+# dependencies and build output
+node_modules/
+.turbo/
+.next/
+dist/
+coverage/
+
+# local environment and credentials
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# database and editor state
+*.sqlite
+*.sqlite-journal
+.DS_Store
+.idea/
+.vscode/

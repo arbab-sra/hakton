@@ -1,0 +1,23 @@
+{
+  "name": "@codemri/auth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "next-auth": "^5.0.0-beta.29"
+  },
+  "devDependencies": {
+    "@codemri/config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "eslint": "^9.25.0",
+    "typescript": "^5.8.3"
+  }
+}

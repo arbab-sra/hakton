@@ -1,0 +1,25 @@
+{
+  "name": "@codemri/metrics",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@codemri/analyzer": "workspace:*",
+    "@codemri/db": "workspace:*",
+    "drizzle-orm": "^0.43.1"
+  },
+  "devDependencies": {
+    "@codemri/config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "eslint": "^9.25.0",
+    "typescript": "^5.8.3"
+  }
+}

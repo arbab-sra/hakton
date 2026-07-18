@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1784171082209,
+      "tag": "0000_flowery_stone_men",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784179309607,
+      "tag": "0001_mixed_mongu",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784179927481,
+      "tag": "0002_needy_doctor_strange",
+      "breakpoints": true
+    }
+  ]
+}

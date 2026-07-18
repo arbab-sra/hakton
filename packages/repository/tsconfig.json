@@ -1,0 +1,10 @@
+{
+  "extends": "@codemri/config/typescript/base",
+  "compilerOptions": {
+    "types": ["node"],
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"]
+}
