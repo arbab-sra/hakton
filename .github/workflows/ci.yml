@@ -67,7 +67,11 @@ jobs:
           # Connect via SSH, pull latest main code, and execute local EC2 run script
           echo "🚀 Connecting to EC2 host: $SSH_HOST..."
           ssh -i ~/.ssh/id_rsa "$SSH_USER@$SSH_HOST" "
-            cd $DEPLOY_PATH && \
+            if [ ! -d \"$DEPLOY_PATH\" ]; then
+              echo '📂 Target directory does not exist. Auto-cloning repository...'
+              git clone https://github.com/arbab-sra/hakton.git \"$DEPLOY_PATH\" || git clone git@github.com:arbab-sra/hakton.git \"$DEPLOY_PATH\"
+            fi
+            cd \"$DEPLOY_PATH\" && \
             git fetch origin main && \
             git reset --hard origin/main && \
             ./run-ec2.sh
