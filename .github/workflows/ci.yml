@@ -71,7 +71,15 @@ jobs:
               echo '📂 Target directory does not exist. Auto-cloning repository...'
               git clone https://github.com/arbab-sra/hakton.git \"$DEPLOY_PATH\" || git clone git@github.com:arbab-sra/hakton.git \"$DEPLOY_PATH\"
             fi
-            cd \"$DEPLOY_PATH\" && \
+            cd \"$DEPLOY_PATH\"
+            
+            # Check if required tools are missing and install them
+            if ! command -v pm2 &> /dev/null || ! command -v pnpm &> /dev/null || ! command -v docker &> /dev/null; then
+              echo '⚙️ Required tools (pm2, pnpm, or docker) are missing. Running installer...'
+              chmod +x install-deps.sh
+              ./install-deps.sh
+            fi
+
             git fetch origin main && \
             git reset --hard origin/main && \
             ./run-ec2.sh
