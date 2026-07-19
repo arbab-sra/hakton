@@ -117,8 +117,12 @@ sudo systemctl restart nginx
 ENV_FILE="./.env"
 if [ -f "$ENV_FILE" ]; then
     echo "📝 Updating NEXT_PUBLIC_APP_URL inside $ENV_FILE to https://$DOMAIN..."
-    # Replace NEXT_PUBLIC_APP_URL matching line with the new HTTPS URL
     sudo sed -i "s|NEXT_PUBLIC_APP_URL=.*|NEXT_PUBLIC_APP_URL=https://$DOMAIN|g" "$ENV_FILE"
+    
+    # Sync environment files to sub-packages
+    echo "📝 Syncing updated environment files to sub-packages..."
+    cp -f "$ENV_FILE" apps/web/.env || sudo cp -f "$ENV_FILE" apps/web/.env
+    cp -f "$ENV_FILE" apps/worker/.env || sudo cp -f "$ENV_FILE" apps/worker/.env
     
     # Reload web server under PM2 control to apply configuration updates
     if command -v pm2 &> /dev/null; then

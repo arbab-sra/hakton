@@ -35,6 +35,11 @@ if [ ! -f .env ]; then
   fi
 fi
 
+# Copy the environment configuration to Next.js and Worker package folders
+echo "📝 Syncing environment files to sub-packages..."
+cp -f .env apps/web/.env
+cp -f .env apps/worker/.env
+
 # 2. Start Database and Redis services via Docker Compose
 echo "🐳 Starting Postgres and Redis containers..."
 sudo docker compose up -d postgres redis || sudo docker-compose up -d postgres redis || docker compose up -d postgres redis
