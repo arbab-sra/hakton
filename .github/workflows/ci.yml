@@ -70,17 +70,17 @@ jobs:
           # Scan public key for known hosts to prevent man-in-the-middle prompts
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
-          # Resolve and expand deployment path on runner to locate target home folder
-          DEPLOY_PATH_EXPANDED=$(ssh -i ~/.ssh/id_rsa "$SSH_USER@$SSH_HOST" "eval echo $DEPLOY_PATH")
+          # Resolve and expand deployment path on EC2 (single-quoted so tilde expands remotely)
+          DEPLOY_PATH_EXPANDED=$(ssh -i ~/.ssh/id_rsa "$SSH_USER@$SSH_HOST" 'eval echo '"$DEPLOY_PATH"'')
 
-          # Write secrets file locally on the runner
-          cat << EOF > .env.secrets
-          AUTH_SECRET=$AUTH_SECRET
-          AUTH_GITHUB_ID=$AUTH_GITHUB_ID
-          AUTH_GITHUB_SECRET=$AUTH_GITHUB_SECRET
-          GITHUB_TOKEN=$GITHUB_TOKEN
-          GROQ_API_KEY=$GROQ_API_KEY
-          EOF
+          # Write secrets file locally on the runner (no leading spaces — heredoc at column 0)
+          cat > .env.secrets << EOF
+AUTH_SECRET=${AUTH_SECRET}
+AUTH_GITHUB_ID=${AUTH_GITHUB_ID}
+AUTH_GITHUB_SECRET=${AUTH_GITHUB_SECRET}
+GITHUB_TOKEN=${GITHUB_TOKEN}
+GROQ_API_KEY=${GROQ_API_KEY}
+EOF
 
           # Copy secrets file to EC2
           scp -i ~/.ssh/id_rsa .env.secrets "$SSH_USER@$SSH_HOST:~/.env.secrets"
