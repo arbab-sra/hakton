@@ -89,7 +89,7 @@ export default async function HomePage() {
           </h1>
 
           <p className="max-w-2xl text-wrap text-lg leading-relaxed text-slate-400">
-            CodeMRI maps your system's structural DNA. Visually inspect connection bottlenecks,
+            CodeMRI maps your system&apos;s structural DNA. Visually inspect connection bottlenecks,
             track file fragility, and prioritize refactors where they actually protect production.
           </p>
 
