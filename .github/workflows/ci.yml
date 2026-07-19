@@ -1,24 +1,77 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   pull_request:
+    branches: [main]
   push:
     branches: [main]
 
 jobs:
+  # 1. Continuous Integration (CI) - Lint, Typecheck, and Build
   quality:
+    name: Continuous Integration
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
           version: 10
-      - uses: actions/setup-node@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm format:check
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm build
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Code format check
+        run: pnpm format:check
+
+      - name: Code lint
+        run: pnpm lint
+
+      - name: TypeScript validation
+        run: pnpm typecheck
+
+      - name: Production build compilation
+        run: pnpm build
+
+  # 2. Continuous Deployment (CD) - Deploy to EC2
+  deploy:
+    name: Continuous Deployment
+    runs-on: ubuntu-latest
+    needs: quality
+    # Only run deployment on pushes to main branch
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy to EC2 instance via SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+          SSH_HOST: ${{ secrets.EC2_HOST }}
+          SSH_USER: ${{ secrets.EC2_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/codemri' }}
+        run: |
+          # Create ssh configuration directory
+          mkdir -p ~/.ssh
+
+          # Write the private key and set correct permissions
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          # Scan public key for known hosts to prevent man-in-the-middle prompts
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+          # Connect via SSH, pull latest main code, and execute local EC2 run script
+          echo "🚀 Connecting to EC2 host: $SSH_HOST..."
+          ssh -i ~/.ssh/id_rsa "$SSH_USER@$SSH_HOST" "
+            cd $DEPLOY_PATH && \
+            git fetch origin main && \
+            git reset --hard origin/main && \
+            ./run-ec2.sh
+          "
+          echo "🎉 Deployment successful!"
