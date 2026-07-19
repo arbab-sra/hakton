@@ -47,6 +47,9 @@ jobs:
     # Only run deployment on pushes to main branch
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Deploy to EC2 instance via SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
@@ -73,45 +76,22 @@ jobs:
           # Resolve and expand deployment path on EC2 (single-quoted so tilde expands remotely)
           DEPLOY_PATH_EXPANDED=$(ssh -i ~/.ssh/id_rsa "$SSH_USER@$SSH_HOST" 'eval echo '"$DEPLOY_PATH"'')
 
-          # Write secrets file locally on the runner (no leading spaces — heredoc at column 0)
-          cat > .env.secrets << EOF
-AUTH_SECRET=${AUTH_SECRET}
-AUTH_GITHUB_ID=${AUTH_GITHUB_ID}
-AUTH_GITHUB_SECRET=${AUTH_GITHUB_SECRET}
-GITHUB_TOKEN=${GITHUB_TOKEN}
-GROQ_API_KEY=${GROQ_API_KEY}
-EOF
+          # Write secrets file locally on the runner
+          {
+            echo "AUTH_SECRET=${AUTH_SECRET}"
+            echo "AUTH_GITHUB_ID=${AUTH_GITHUB_ID}"
+            echo "AUTH_GITHUB_SECRET=${AUTH_GITHUB_SECRET}"
+            echo "GITHUB_TOKEN=${GITHUB_TOKEN}"
+            echo "GROQ_API_KEY=${GROQ_API_KEY}"
+          } > .env.secrets
 
           # Copy secrets file to EC2
           scp -i ~/.ssh/id_rsa .env.secrets "$SSH_USER@$SSH_HOST:~/.env.secrets"
           rm -f .env.secrets
 
-          # Write the merge-env Node.js helper script to a temp file (avoids inline escaping hell)
-          cat > /tmp/merge-env.js << 'NODEJS_EOF'
-const fs = require('fs');
-const path = require('path');
-const deployDir = process.argv[2];
-const secretsFile = path.join(process.env.HOME, '.env.secrets');
-if (!fs.existsSync(secretsFile)) { console.log('No secrets file found, skipping.'); process.exit(0); }
-const envFile = path.join(deployDir, '.env');
-const exampleFile = path.join(deployDir, '.env.example');
-let content = fs.existsSync(envFile) ? fs.readFileSync(envFile, 'utf8') : fs.readFileSync(exampleFile, 'utf8');
-const secrets = fs.readFileSync(secretsFile, 'utf8');
-for (const line of secrets.split('\n')) {
-  const idx = line.indexOf('=');
-  if (idx < 1) continue;
-  const key = line.substring(0, idx).trim();
-  const val = line.substring(idx + 1).trim();
-  if (!key || !val) continue;
-  const re = new RegExp('^' + key + '=.*', 'm');
-  content = re.test(content) ? content.replace(re, key + '=' + val) : content + '\n' + key + '=' + val;
-}
-fs.writeFileSync(envFile, content, 'utf8');
-console.log('Secrets injected into .env successfully.');
-NODEJS_EOF
+          # Copy helper script to EC2 (repo was already checked out by actions/checkout)
+          scp -i ~/.ssh/id_rsa "$GITHUB_WORKSPACE/.github/scripts/merge-env.js" "$SSH_USER@$SSH_HOST:~/merge-env.js"
 
-          # Copy helper scripts to EC2
-          scp -i ~/.ssh/id_rsa /tmp/merge-env.js "$SSH_USER@$SSH_HOST:~/merge-env.js"
 
           # Connect via SSH, pull latest main code, merge secrets, and start the app
           echo "🚀 Connecting to EC2 host: $SSH_HOST..."
