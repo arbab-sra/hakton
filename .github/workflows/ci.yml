@@ -71,11 +71,14 @@ jobs:
             export NVM_DIR=\"\$HOME/.nvm\"
             [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\"
 
-            if [ ! -d \"$DEPLOY_PATH\" ]; then
+            # Expand tilde ~ to full absolute path if present
+            DEPLOY_PATH_EXPANDED=\$(eval echo \"$DEPLOY_PATH\")
+
+            if [ ! -d \"\$DEPLOY_PATH_EXPANDED\" ]; then
               echo '📂 Target directory does not exist. Auto-cloning repository...'
-              git clone https://github.com/arbab-sra/hakton.git \"$DEPLOY_PATH\" || git clone git@github.com:arbab-sra/hakton.git \"$DEPLOY_PATH\"
+              git clone https://github.com/arbab-sra/hakton.git \"\$DEPLOY_PATH_EXPANDED\" || git clone git@github.com:arbab-sra/hakton.git \"\$DEPLOY_PATH_EXPANDED\"
             fi
-            cd \"$DEPLOY_PATH\"
+            cd \"\$DEPLOY_PATH_EXPANDED\"
             
             # Check if required tools are missing and install them
             if ! command -v pm2 &> /dev/null || ! command -v pnpm &> /dev/null || ! command -v docker &> /dev/null; then
