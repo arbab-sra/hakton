@@ -116,36 +116,42 @@ jobs:
               [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\"
             fi
 
-            # Merge secrets into the remote .env file using Node.js
-            if [ -f .env.secrets ]; then
-              echo '📝 Injecting GitHub Secrets into remote .env file...'
-              node -e \"
-                const fs = require('fs');
-                let content = fs.existsSync('.env') ? fs.readFileSync('.env', 'utf8') : fs.readFileSync('.env.example', 'utf8');
-                const secretsContent = fs.readFileSync('.env.secrets', 'utf8');
-                const lines = secretsContent.split('\\n');
-                for (const line of lines) {
-                  if (line.includes('=')) {
-                    const idx = line.indexOf('=');
-                    const key = line.substring(0, idx).trim();
-                    const val = line.substring(idx + 1).trim();
-                    if (val) {
-                      const regex = new RegExp('^' + key + '=.*', 'm');
-                      if (regex.test(content)) {
-                        content = content.replace(regex, key + '=' + val);
-                      } else {
-                        content += '\\n' + key + '=' + val;
-                      }
-                    }
-                  }
-                }
-                fs.writeFileSync('.env', content, 'utf8');
-              \"
-              rm -f .env.secrets
-            fi
+            # NOTE: .env secrets are injected AFTER git reset (see below)
+            # so they are not overwritten by the hard reset.
+
+            # ── Pre-deploy disk cleanup ──────────────────────────────
+            echo '🧹 Cleaning disk before deploy...'
+            rm -rf node_modules .next 2>/dev/null || true
+            docker system prune -f 2>/dev/null || true
+            sudo -n apt-get clean 2>/dev/null || true
+            df -h /
+            # ─────────────────────────────────────────────────────────
 
             git fetch origin main && \
             git reset --hard origin/main && \
+            if [ -f ~/.env.secrets ]; then \
+              echo '📝 Injecting GitHub Secrets into remote .env file...' && \
+              node -e "\
+                const fs = require('fs');\
+                let content = fs.existsSync('.env') ? fs.readFileSync('.env', 'utf8') : fs.readFileSync('.env.example', 'utf8');\
+                const secretsContent = fs.readFileSync(process.env.HOME + '/.env.secrets', 'utf8');\
+                const lines = secretsContent.split('\n');\
+                for (const line of lines) {\
+                  if (line.includes('=')) {\
+                    const idx = line.indexOf('=');\
+                    const key = line.substring(0, idx).trim();\
+                    const val = line.substring(idx + 1).trim();\
+                    if (val) {\
+                      const regex = new RegExp('^' + key + '=.*', 'm');\
+                      if (regex.test(content)) { content = content.replace(regex, key + '=' + val); }\
+                      else { content += '\n' + key + '=' + val; }\
+                    }\
+                  }\
+                }\
+                fs.writeFileSync('.env', content, 'utf8');\
+              " && \
+              rm -f ~/.env.secrets; \
+            fi && \
             chmod +x setup-https.sh && \
             ./setup-https.sh codemri.arbab.fun && \
             ./run-ec2.sh
