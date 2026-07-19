@@ -147,7 +147,7 @@ jobs:
             git fetch origin main && \
             git reset --hard origin/main && \
             chmod +x setup-https.sh && \
-            ./setup-https.sh && \
+            ./setup-https.sh codemri.arbab.fun && \
             ./run-ec2.sh
           "
           echo "🎉 Deployment successful!"
