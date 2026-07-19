@@ -17,7 +17,20 @@ fi
 
 echo "📋 Detected OS: $OS"
 
-# 1. Update system packages
+# 1. Setup Swap file if it doesn't exist (critical for small EC2 instances with 1GB RAM)
+if [ ! -f /swapfile ] && [ -z "$(sudo swapon --show)" ]; then
+    echo "💾 Configuring 2GB Swap file for RAM safety..."
+    sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+    sudo chmod 600 /swapfile
+    sudo mkswap /swapfile
+    sudo swapon /swapfile
+    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+    echo "✅ Swap file created and enabled successfully!"
+else
+    echo "💾 Swap is already configured."
+fi
+
+# 2. Update system packages
 echo "🔄 Updating system package repository..."
 if [[ "$OS" == *"Ubuntu"* ]] || [[ "$OS" == *"Debian"* ]]; then
     sudo apt-get update -y
@@ -29,7 +42,7 @@ elif [[ "$OS" == *"Amazon Linux"* ]] || [[ "$OS" == *"Red Hat"* ]] || [[ "$OS" =
     fi
 fi
 
-# 2. Install Docker & Docker Compose
+# 3. Install Docker & Docker Compose
 echo "🐳 Installing Docker & Docker Compose..."
 if [[ "$OS" == *"Ubuntu"* ]] || [[ "$OS" == *"Debian"* ]]; then
     sudo apt-get install -y ca-certificates curl gnupg lsb-release
@@ -69,7 +82,7 @@ fi
 echo "👤 Adding $USER to docker group..."
 sudo usermod -aG docker $USER || true
 
-# 3. Install Node.js (via NVM - Node Version Manager)
+# 4. Install Node.js (via NVM - Node Version Manager)
 echo "🟢 Installing Node Version Manager (NVM) & Node.js 22..."
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 
@@ -86,11 +99,11 @@ nvm alias default 22
 echo "✅ Node.js version: $(node -v)"
 echo "✅ NPM version: $(npm -v)"
 
-# 4. Install Global npm packages (pnpm & pm2)
+# 5. Install Global npm packages (pnpm & pm2)
 echo "📦 Installing pnpm and pm2 globally..."
 npm install -g pnpm pm2
 
-# 5. Output Verification
+# 6. Output Verification
 echo "===================================================="
 echo "🎉 Installation Completed Successfully!"
 echo "===================================================="

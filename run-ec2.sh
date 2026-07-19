@@ -7,6 +7,17 @@ set -e
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
+# Setup Swap file if it doesn't exist (prevent pnpm OOM / exit code 137 on 1GB RAM EC2s)
+if [ ! -f /swapfile ] && [ -z "$(sudo swapon --show)" ]; then
+    echo "💾 Configuring 2GB Swap file for RAM safety..."
+    sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+    sudo chmod 600 /swapfile
+    sudo mkswap /swapfile
+    sudo swapon /swapfile
+    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+    echo "✅ Swap file configured successfully!"
+fi
+
 echo "===================================================="
 # Output CodeMRI EC2 PM2 Deployment Banner
 echo "🧠🔍 Starting CodeMRI EC2 PM2 Deployment & Run"
