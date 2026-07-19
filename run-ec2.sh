@@ -22,7 +22,7 @@ fi
 
 # 2. Start Database and Redis services via Docker Compose
 echo "🐳 Starting Postgres and Redis containers..."
-docker compose up -d postgres redis
+sudo docker compose up -d postgres redis || sudo docker-compose up -d postgres redis || docker compose up -d postgres redis
 
 # 3. Install Workspace dependencies
 echo "📦 Installing workspace dependencies via pnpm..."
