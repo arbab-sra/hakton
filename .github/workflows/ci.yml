@@ -53,6 +53,12 @@ jobs:
           SSH_HOST: ${{ secrets.EC2_HOST }}
           SSH_USER: ${{ secrets.EC2_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/codemri' }}
+          # App secrets
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          AUTH_GITHUB_ID: ${{ secrets.AUTH_GITHUB_ID }}
+          AUTH_GITHUB_SECRET: ${{ secrets.AUTH_GITHUB_SECRET }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
           # Create ssh configuration directory
           mkdir -p ~/.ssh
@@ -64,21 +70,41 @@ jobs:
           # Scan public key for known hosts to prevent man-in-the-middle prompts
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
-          # Connect via SSH, pull latest main code, and execute local EC2 run script
+          # Resolve and expand deployment path on runner to locate target home folder
+          DEPLOY_PATH_EXPANDED=$(ssh -i ~/.ssh/id_rsa "$SSH_USER@$SSH_HOST" "eval echo $DEPLOY_PATH")
+
+          # Write secrets file locally on the runner
+          cat << EOF > .env.secrets
+          AUTH_SECRET=$AUTH_SECRET
+          AUTH_GITHUB_ID=$AUTH_GITHUB_ID
+          AUTH_GITHUB_SECRET=$AUTH_GITHUB_SECRET
+          GITHUB_TOKEN=$GITHUB_TOKEN
+          GROQ_API_KEY=$GROQ_API_KEY
+          EOF
+
+          # Copy the secrets file to the remote user home directory (failsafe area)
+          scp -i ~/.ssh/id_rsa .env.secrets "$SSH_USER@$SSH_HOST:~/.env.secrets"
+          rm -f .env.secrets
+
+          # Connect via SSH, pull latest main code, merge secrets, and execute local EC2 run script
           echo "🚀 Connecting to EC2 host: $SSH_HOST..."
           ssh -i ~/.ssh/id_rsa "$SSH_USER@$SSH_HOST" "
             # Load NVM (Node Version Manager) paths
             export NVM_DIR=\"\$HOME/.nvm\"
             [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\"
 
-            # Expand tilde ~ to full absolute path if present
-            DEPLOY_PATH_EXPANDED=\$(eval echo \"$DEPLOY_PATH\")
-
-            if [ ! -d \"\$DEPLOY_PATH_EXPANDED\" ]; then
+            # Auto-clone repository if deploy directory does not exist
+            if [ ! -d \"$DEPLOY_PATH_EXPANDED\" ]; then
               echo '📂 Target directory does not exist. Auto-cloning repository...'
-              git clone https://github.com/arbab-sra/hakton.git \"\$DEPLOY_PATH_EXPANDED\" || git clone git@github.com:arbab-sra/hakton.git \"\$DEPLOY_PATH_EXPANDED\"
+              git clone https://github.com/arbab-sra/hakton.git \"$DEPLOY_PATH_EXPANDED\"
             fi
-            cd \"\$DEPLOY_PATH_EXPANDED\"
+            
+            # Move the secrets file into the deployment directory
+            if [ -f ~/.env.secrets ]; then
+              mv ~/.env.secrets \"$DEPLOY_PATH_EXPANDED/.env.secrets\"
+            fi
+
+            cd \"$DEPLOY_PATH_EXPANDED\"
             
             # Check if required tools are missing and install them
             if ! command -v pm2 &> /dev/null || ! command -v pnpm &> /dev/null || ! command -v docker &> /dev/null; then
@@ -90,8 +116,38 @@ jobs:
               [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\"
             fi
 
+            # Merge secrets into the remote .env file using Node.js
+            if [ -f .env.secrets ]; then
+              echo '📝 Injecting GitHub Secrets into remote .env file...'
+              node -e \"
+                const fs = require('fs');
+                let content = fs.existsSync('.env') ? fs.readFileSync('.env', 'utf8') : fs.readFileSync('.env.example', 'utf8');
+                const secretsContent = fs.readFileSync('.env.secrets', 'utf8');
+                const lines = secretsContent.split('\\n');
+                for (const line of lines) {
+                  if (line.includes('=')) {
+                    const idx = line.indexOf('=');
+                    const key = line.substring(0, idx).trim();
+                    const val = line.substring(idx + 1).trim();
+                    if (val) {
+                      const regex = new RegExp('^' + key + '=.*', 'm');
+                      if (regex.test(content)) {
+                        content = content.replace(regex, key + '=' + val);
+                      } else {
+                        content += '\\n' + key + '=' + val;
+                      }
+                    }
+                  }
+                }
+                fs.writeFileSync('.env', content, 'utf8');
+              \"
+              rm -f .env.secrets
+            fi
+
             git fetch origin main && \
             git reset --hard origin/main && \
+            chmod +x setup-https.sh && \
+            ./setup-https.sh && \
             ./run-ec2.sh
           "
           echo "🎉 Deployment successful!"

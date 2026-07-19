@@ -101,9 +101,13 @@ sudo systemctl restart nginx
 sudo nginx -t
 
 # 3. Request SSL Certificate from Let's Encrypt via Certbot
-echo "🔑 Requesting Let's Encrypt SSL certificate..."
-# Obtain certificate and let Certbot configure Nginx automatically
-sudo certbot --nginx --non-interactive --agree-tos --email "$EMAIL" -d "$DOMAIN" --redirect
+if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
+    echo "🔒 SSL certificate for $DOMAIN already exists. Skipping Certbot request..."
+else
+    echo "🔑 Requesting Let's Encrypt SSL certificate..."
+    # Obtain certificate and let Certbot configure Nginx automatically
+    sudo certbot --nginx --non-interactive --agree-tos --email "$EMAIL" -d "$DOMAIN" --redirect
+fi
 
 # 4. Restart Nginx to load SSL
 echo "🔄 Reloading Nginx with SSL certificate active..."

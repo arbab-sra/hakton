@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 
 import {
   Button,
@@ -111,6 +111,14 @@ export function RepositoryImportPanel() {
   const [apiKey, setApiKey] = useState("");
   const [providerError, setProviderError] = useState<string>();
   const [isValidatingProvider, setValidatingProvider] = useState(false);
+  const [hasServerApiKey, setHasServerApiKey] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/ai/config")
+      .then((res) => res.json())
+      .then((data) => setHasServerApiKey(!!data.hasApiKey))
+      .catch((err) => console.error("Failed to fetch AI configuration", err));
+  }, []);
 
   const scansQuery = useQuery({
     queryKey: ["repository-scans"],
@@ -139,7 +147,12 @@ export function RepositoryImportPanel() {
     event.preventDefault();
     setFormError(undefined);
     setProviderError(undefined);
-    setProviderDialogOpen(true);
+
+    if (hasServerApiKey) {
+      importMutation.mutate({ repositoryUrl, ...(branch ? { branch } : {}) });
+    } else {
+      setProviderDialogOpen(true);
+    }
   }
 
   async function handleProviderSubmit(event: FormEvent<HTMLFormElement>) {
