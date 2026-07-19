@@ -113,11 +113,25 @@ fi
 echo "🔄 Reloading Nginx with SSL certificate active..."
 sudo systemctl restart nginx
 
-# 5. Automatically update NEXT_PUBLIC_APP_URL inside the local .env
+# 5. Automatically update NEXT_PUBLIC_APP_URL, AUTH_URL, and NEXTAUTH_URL inside the local .env
 ENV_FILE="./.env"
 if [ -f "$ENV_FILE" ]; then
-    echo "📝 Updating NEXT_PUBLIC_APP_URL inside $ENV_FILE to https://$DOMAIN..."
-    sudo sed -i "s|NEXT_PUBLIC_APP_URL=.*|NEXT_PUBLIC_APP_URL=https://$DOMAIN|g" "$ENV_FILE"
+    echo "📝 Updating environment URLs inside $ENV_FILE to target domain https://$DOMAIN..."
+    
+    update_env_value() {
+        local file=$1
+        local key=$2
+        local val=$3
+        if grep -q "^$key=" "$file"; then
+            sudo sed -i "s|^$key=.*|$key=$val|g" "$file"
+        else
+            echo "$key=$val" | sudo tee -a "$file" > /dev/null
+        fi
+    }
+
+    update_env_value "$ENV_FILE" "NEXT_PUBLIC_APP_URL" "https://$DOMAIN"
+    update_env_value "$ENV_FILE" "AUTH_URL" "https://$DOMAIN/api/auth"
+    update_env_value "$ENV_FILE" "NEXTAUTH_URL" "https://$DOMAIN"
     
     # Sync environment files to sub-packages
     echo "📝 Syncing updated environment files to sub-packages..."
