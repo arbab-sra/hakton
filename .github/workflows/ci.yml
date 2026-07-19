@@ -82,14 +82,40 @@ jobs:
           GROQ_API_KEY=$GROQ_API_KEY
           EOF
 
-          # Copy the secrets file to the remote user home directory (failsafe area)
+          # Copy secrets file to EC2
           scp -i ~/.ssh/id_rsa .env.secrets "$SSH_USER@$SSH_HOST:~/.env.secrets"
           rm -f .env.secrets
 
-          # Connect via SSH, pull latest main code, merge secrets, and execute local EC2 run script
+          # Write the merge-env Node.js helper script to a temp file (avoids inline escaping hell)
+          cat > /tmp/merge-env.js << 'NODEJS_EOF'
+const fs = require('fs');
+const path = require('path');
+const deployDir = process.argv[2];
+const secretsFile = path.join(process.env.HOME, '.env.secrets');
+if (!fs.existsSync(secretsFile)) { console.log('No secrets file found, skipping.'); process.exit(0); }
+const envFile = path.join(deployDir, '.env');
+const exampleFile = path.join(deployDir, '.env.example');
+let content = fs.existsSync(envFile) ? fs.readFileSync(envFile, 'utf8') : fs.readFileSync(exampleFile, 'utf8');
+const secrets = fs.readFileSync(secretsFile, 'utf8');
+for (const line of secrets.split('\n')) {
+  const idx = line.indexOf('=');
+  if (idx < 1) continue;
+  const key = line.substring(0, idx).trim();
+  const val = line.substring(idx + 1).trim();
+  if (!key || !val) continue;
+  const re = new RegExp('^' + key + '=.*', 'm');
+  content = re.test(content) ? content.replace(re, key + '=' + val) : content + '\n' + key + '=' + val;
+}
+fs.writeFileSync(envFile, content, 'utf8');
+console.log('Secrets injected into .env successfully.');
+NODEJS_EOF
+
+          # Copy helper scripts to EC2
+          scp -i ~/.ssh/id_rsa /tmp/merge-env.js "$SSH_USER@$SSH_HOST:~/merge-env.js"
+
+          # Connect via SSH, pull latest main code, merge secrets, and start the app
           echo "🚀 Connecting to EC2 host: $SSH_HOST..."
           ssh -i ~/.ssh/id_rsa "$SSH_USER@$SSH_HOST" "
-            # Load NVM (Node Version Manager) paths
             export NVM_DIR=\"\$HOME/.nvm\"
             [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\"
 
@@ -98,62 +124,34 @@ jobs:
               echo '📂 Target directory does not exist. Auto-cloning repository...'
               git clone https://github.com/arbab-sra/hakton.git \"$DEPLOY_PATH_EXPANDED\"
             fi
-            
-            # Move the secrets file into the deployment directory
-            if [ -f ~/.env.secrets ]; then
-              mv ~/.env.secrets \"$DEPLOY_PATH_EXPANDED/.env.secrets\"
-            fi
 
             cd \"$DEPLOY_PATH_EXPANDED\"
-            
+
             # Check if required tools are missing and install them
             if ! command -v pm2 &> /dev/null || ! command -v pnpm &> /dev/null || ! command -v docker &> /dev/null; then
-              echo '⚙️ Required tools (pm2, pnpm, or docker) are missing. Running installer...'
-              chmod +x install-deps.sh
-              ./install-deps.sh
-              
-              # Re-load NVM paths after installation
+              echo '⚙️ Required tools missing. Running installer...'
+              chmod +x install-deps.sh && ./install-deps.sh
               [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\"
             fi
 
-            # NOTE: .env secrets are injected AFTER git reset (see below)
-            # so they are not overwritten by the hard reset.
-
-            # ── Pre-deploy disk cleanup ──────────────────────────────
+            # Pre-deploy disk cleanup to prevent 'no space left on device'
             echo '🧹 Cleaning disk before deploy...'
             rm -rf node_modules .next 2>/dev/null || true
             docker system prune -f 2>/dev/null || true
             sudo -n apt-get clean 2>/dev/null || true
             df -h /
-            # ─────────────────────────────────────────────────────────
 
-            git fetch origin main && \
-            git reset --hard origin/main && \
-            if [ -f ~/.env.secrets ]; then \
-              echo '📝 Injecting GitHub Secrets into remote .env file...' && \
-              node -e "\
-                const fs = require('fs');\
-                let content = fs.existsSync('.env') ? fs.readFileSync('.env', 'utf8') : fs.readFileSync('.env.example', 'utf8');\
-                const secretsContent = fs.readFileSync(process.env.HOME + '/.env.secrets', 'utf8');\
-                const lines = secretsContent.split('\n');\
-                for (const line of lines) {\
-                  if (line.includes('=')) {\
-                    const idx = line.indexOf('=');\
-                    const key = line.substring(0, idx).trim();\
-                    const val = line.substring(idx + 1).trim();\
-                    if (val) {\
-                      const regex = new RegExp('^' + key + '=.*', 'm');\
-                      if (regex.test(content)) { content = content.replace(regex, key + '=' + val); }\
-                      else { content += '\n' + key + '=' + val; }\
-                    }\
-                  }\
-                }\
-                fs.writeFileSync('.env', content, 'utf8');\
-              " && \
-              rm -f ~/.env.secrets; \
-            fi && \
-            chmod +x setup-https.sh && \
-            ./setup-https.sh codemri.arbab.fun && \
+            # Pull latest code
+            git fetch origin main && git reset --hard origin/main
+
+            # Inject secrets into .env AFTER git reset (avoids being wiped)
+            if [ -f ~/.env.secrets ] && command -v node &>/dev/null; then
+              echo '📝 Injecting GitHub Secrets into .env...'
+              node ~/merge-env.js \"$DEPLOY_PATH_EXPANDED\"
+              rm -f ~/.env.secrets ~/merge-env.js
+            fi
+
+            chmod +x setup-https.sh && ./setup-https.sh codemri.arbab.fun
             ./run-ec2.sh
           "
           echo "🎉 Deployment successful!"
