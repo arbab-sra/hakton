@@ -57,8 +57,8 @@ jobs:
           # Create ssh configuration directory
           mkdir -p ~/.ssh
 
-          # Write the private key and set correct permissions
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          # Write the private key, remove any Windows carriage return formatting, and set correct permissions
+          printf "%s\n" "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
           # Scan public key for known hosts to prevent man-in-the-middle prompts
