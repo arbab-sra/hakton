@@ -3,6 +3,10 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
+# Load NVM (Node Version Manager) environment if available
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
 echo "===================================================="
 # Output CodeMRI EC2 PM2 Deployment Banner
 echo "🧠🔍 Starting CodeMRI EC2 PM2 Deployment & Run"

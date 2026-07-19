@@ -67,6 +67,10 @@ jobs:
           # Connect via SSH, pull latest main code, and execute local EC2 run script
           echo "🚀 Connecting to EC2 host: $SSH_HOST..."
           ssh -i ~/.ssh/id_rsa "$SSH_USER@$SSH_HOST" "
+            # Load NVM (Node Version Manager) paths
+            export NVM_DIR=\"\$HOME/.nvm\"
+            [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\"
+
             if [ ! -d \"$DEPLOY_PATH\" ]; then
               echo '📂 Target directory does not exist. Auto-cloning repository...'
               git clone https://github.com/arbab-sra/hakton.git \"$DEPLOY_PATH\" || git clone git@github.com:arbab-sra/hakton.git \"$DEPLOY_PATH\"
@@ -78,6 +82,9 @@ jobs:
               echo '⚙️ Required tools (pm2, pnpm, or docker) are missing. Running installer...'
               chmod +x install-deps.sh
               ./install-deps.sh
+              
+              # Re-load NVM paths after installation
+              [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\"
             fi
 
             git fetch origin main && \
